@@ -1,0 +1,150 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+
+### Next Generation Sequence Analysis Homework Week 8
+
+Week 8 serves as the first of three weeks on differential gene expression (DGE) with RNA-seq. In this exercise, you will align RNA-seq reads to a reference genome assembly and answer various questions related to RNA-seq alignments with the STAR aligner. In subsequent weeks you will conduct statistical analysis of RNA-seq data and learn to draw biological insights from them.
+
+
+### About the data
+
+The RNA-seq data are from date palm fruit. In this experiment, researchers wished to test for differential gene expression between varieties of date palm with high fruit sucrose content (n=4) versus those with trace amounts of sucrose (n=4). The goal was to determine if a group of linked invertase enzymes identified by Genome Wide Association Study (GWAS) showed DGE between varieties with the two sugar phenotypes.  
+
+The RNA-seq data in this experiment were generated on a NextSeq sequencer, processed to exclude reads that failed Illumina's quality control filter, and then adapters removed with Trimmomatic.  
+
+
+#### Assignment Objective
+
+After completing this assignment, students will be able to perform splice-aware alignment of RNA-seq reads to a reference genome  
+
+### Completing your assignment
+
+The preferred way to submit your assignments is to submit an .html file produced by RMarkdown/Markdown and occasionally other files as requested. Your code should be embedded in readable code chunks.  
+
+Where possible please upload the answers to questions as a single markdown .html (preferred) report. Other formats are discouraged but .txt, .pdf, and .docx are accepted. Occasionally you may also submit screenshots or additional image files.  
+
+Please **always include your name in the filename AND at the top of the document**.  
+
+Upload this weeks report to the Homework 7 section at the Assignments link in NYU Classes.  
+
+
+
+### Task 1: Align RNA-seq reads to the reference genome
+
+For this task you will align and coordinate sort RNA-seq reads to a reference genome assembly with the STAR aligner. You will then create a BAM index file for each sample.   
+
+The desired output for this task is a coordinate-sorted BAM alignment and BAM index file for each of the eight date palm fruit RNA-seq samples.  
+
+STAR documentation is here here:  
+ 
+<https://github.com/alexdobin/STAR/blob/master/doc/STARmanual.pdf>
+
+For a quick intro, begin by reading 'Section 1.2 Basic Worflow' to get the main idea.  
+
+The eight samples you will align and their fastq file names are in the following tab-delimited file:  
+
+```{bash}
+/scratch/work/courses/BI7653/hw8.2023/fastqs.txt
+```
+
+This is a tab-delimited file with sample, forward fastq file and reverse fastq file name. Note that columns two and three have the **file names not the full paths to the files**.
+
+The fastqs are located in: 
+
+```{bash}
+/scratch/work/courses/BI7653/hw8.2023/fastqs
+```
+
+Your instructor has created the index files for STAR using the genomeGenerate command in the STAR package. The index files are located here:
+
+```{bash}
+/scratch/work/courses/BI7653/hw8.2023/STAR.genome
+```
+
+The reference fasta used to create the index files is:
+
+```{bash}
+/scratch/work/courses/BI7653/hw8.2023/Pdac_Barhee_chr_unan_cp_180126.fa
+```
+
+Before proceeding, log in to Greene and create a directory `ngs.week8` in your `/scratch` directory. Then, use the instructions below to create an array job script to create the RNA-seq alignments.  
+
+To prepare your array job script, you must review the STAR documentation section 3 “Running mapping jobs”, section 4 for how to specify output directory and file name prefix for output files, and section 4.3 for how to output a coordinate-sorted BAM in the STAR documentation.  
+
+In addition, consider the following for your array job script.  
+
+(1) Use the slurm directive `#SBATCH --array 1-8` to run array job on 8 samples and their fastqs  
+
+(2) Consider parsing the table with fastq file names using the approach used in Week 2 Task 2 script provided to you by your instructor. See syntax in `/scratch/work/courses/BI7653/hw2.2023/wk2_task2.sh`. The idea is to parse the 3-column table with sample name, forward fastq, and reverse fastq in `/scratch/work/courses/BI7653/hw8.2023/fastqs.txt`  
+
+(3) Consider creating a separate directory for each sample with `mkdir` in your script. If you create a directry in the script, you may then cd into the directory before executing the STAR aligner on the current sample in your array job.  
+
+(4) One reason to cd into a new directory for each job array index is to prevent file name collisions (i.e., where output files have same name and therefore over-write each other). However, even when running each job array index in a different directory, it is always preferable to give output files a unique name. To give each output a different name you can define the sample name in a variable called `sample` (see example in wk2_task2.sh) and then include option `--outFileNamePrefix $sample` in your STAR command line  
+
+(5) include in your STAR alignment command the option to output a coordinate-sorted BAM (see section 4.3 of documentation). Otherwise, you would have to run a separate tool to coordinate sort each BAM.  
+
+(6) STAR does not natively work with g-zipped (compressed) fastq files. To get STAR to work with compressed files, add the following to your STAR command line `--readFilesCommand zcat`. Effectively, STAR uses the BASH `zcat` to uncompress the files internally. See p. 30 of STAR documentation.  
+
+(7) Request 24 GB of RAM (coordinate-sorting is memory intensive) and include the `--limitBAMsortRAM 20000000000` argument in your command   
+
+(8) include --outTmpDir "${SLURM_JOBTMP}"/"${SLURM_ARRAY_TASK_ID}" (p. 20) in your STAR command to correctly specify a local temporary directory on compute node.  
+
+(9) Create a second command line to index your output BAM file for each sample because all coordinate-sorted BAM files require an index for downstream NGS tools. See samtools index.  
+
+(10) Don't forget to load the most recent STAR and Samtools modules.  
+
+
+
+When you are ready execute your script with sbatch.
+
+Q1.1. Report the contents of your array job script and the job id on Greene [ 3 points ].  
+ 
+ 
+
+
+Q1.2a Review the file “Log.final.out” for sample PDAC253 and report the following [ 1 point ]:  
+ 
+(1) The number of uniquely mapped reads  
+(2) The percentage of uniquely mapped reads  
+(3) The total number of input reads  
+
+
+
+Q1.2b It is common to only work with uniquely mapped reads (and not include multiply-mapped reads in downstream analysis). If you want to make sure STAR output only uniquely mapped reads, how might you do this? What is the default mapping quality assigned in the SAM alignment records for uniquely mapped reads? Hint: See STAR documentation sections 15.13 and 15.16 [ 1 point ]  
+
+
+
+Q1.2c The number and percentage of reads mapped to too many loci is very high for this library. Provide a hypothesis for this observation and how you might go about evaluating it. [ 1 point ]  
+
+
+
+
+Q1.3. Report the first 20 lines of the header for one output BAM (using samtools view). Then answer is your BAM coordinate-sorted? Please include your samtools view command in your answer for full credit. [ 1 point ]?  
+
+
+
+Q1.4. Recall from the SAM format specification that mapping quality of a read alignment is a PHRED-scaled probability that the read is aligned in error. However, this quantity is difficult to estimate and different alignment tools use different rules to assign mapping quality scores to aligned reads. In many cases, these qualities are only loosely correlated with an accurate PHRED score.  
+
+Q1.4a What mapping quality scores are present in the alignment for PDAC253 (note: you may need to convert BAM to SAM)? [1 point]  
+
+
+
+Q1.4b. According to the documentation, the uniquely mapped reads are defined by --outSAMmapqUnique and the mapping qualities for multiply mapped reads are: int(-10*log10(1-1/Nmap)). For each of the mapping qualities in Q1.4a, how many places do the reads with each of the other mapping qualities map to? Which mapping quality is assigned to uniquely mapped reads? [ 1 point ]  
+
+
+
+Q1.5. Imagine that you are working on a pair of recently duplicated genes and want to independently test for differential gene expression for the duplicated genes with the RNA-seq data in this assignment. Do you think this is possible? What factor(s) should be considered in order to do so? [ 1 point ]  
+
+
+
+
+#### You are finished, upload the answers in a .html, text, word, or pdf with naming convention <yourname>_homework_week8.html or in the “Assignments” section on the NYU Brightspace webpage.
